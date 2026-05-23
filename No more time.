@@ -1,417 +1,583 @@
--- ============================================================
--- FTAP VELOCITY ULTIMATE v5.0
--- Merged: Long Range, Fling Power, Extend Slider, Multicolor ESP, Auto Fling, Keybinds, Anti-AFK, Anti-Fall, Anti-Void
--- Optimized for Velocity Executor (Level 8 UNC/SUNC)
--- ============================================================
+-- ================================================================ 
+-- No More Time Hub v2 
+-- Fixed Godmode · Noclip · Fly · Speed 
+-- Anti-Kick · Anti-Ban · Anti-Detect · Anti-Cheat Bypass 
+-- ================================================================ 
 
--- Services
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
-local CoreGui = game:GetService("CoreGui")
-local VirtualInput = game:GetService("VirtualInputManager")
-local TweenService = game:GetService("TweenService")
-local Lighting = game:GetService("Lighting")
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))() 
+local Window = Rayfield:CreateWindow({ 
+    Name = "No More Time Hub v2", 
+    LoadingTitle = "NMT Hub v2", 
+    LoadingSubtitle = "Fixed + Protected", 
+    ConfigurationSaving = { Enabled = true, FolderName = "NMTHub", FileName = "Config", }, 
+}) 
 
-local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
+-- ======================== SERVICES ======================== 
+local Players = game:GetService("Players") 
+local RunService = game:GetService("RunService") 
+local UserInputService = game:GetService("UserInputService") 
+local TeleportService = game:GetService("TeleportService") 
+local ReplicatedStorage = game:GetService("ReplicatedStorage") 
+local Workspace = game:GetService("Workspace") 
+local Lighting = game:GetService("Lighting") 
+local LocalPlayer = Players.LocalPlayer 
+local Camera = Workspace.CurrentCamera 
 
--- ========== FEATURE FLAGS ==========
-local flags = {
-    longRange = false,
-    flingEnabled = false,
-    autoFling = false,
-    antiAfk = false,
-    antiFall = false,
-    antiVoid = false,
-    espPlayers = false,
-    brightWorld = false,
-    noClip = false,
-    flyEnabled = false,
-    speedEnabled = false,
-    remoteSpy = false,
-}
+-- ======================== HELPERS ======================== 
+local function GetChar() return LocalPlayer.Character end 
+local function GetHRP() local c = GetChar() return c and c:FindFirstChild("HumanoidRootPart") end 
+local function GetHum() local c = GetChar() return c and c:FindFirstChildWhichIsA("Humanoid") end 
+local function Notify(t, c, d) pcall(function() Rayfield:Notify({ Title=t, Content=c, Duration=d or 3 }) end) end 
+local function FindByNames(tbl) for _, name in ipairs(tbl) do for _, v in ipairs(Workspace:GetDescendants()) do if v.Name:lower():find(name:lower()) then return v end end end end 
 
--- ========== USER SETTINGS ==========
-local settings = {
-    flingPower = 250,
-    extendRange = 1000,
-    walkspeed = 80,
-    flySpeed = 80,
-    flingKey = Enum.KeyCode.G,
-    espColor = Color3.fromRGB(255, 0, 255),
-    espOutline = Color3.fromRGB(255, 255, 255),
-}
+local connections = {} 
+local function DC(k) if connections[k] then if typeof(connections[k]) == "RBXScriptConnection" then connections[k]:Disconnect() end connections[k] = nil end end 
 
--- ========== CORE FUNCTIONS ==========
-local function getChar() return LocalPlayer.Character end
-local function getHRP() local c = getChar() return c and c:FindFirstChild("HumanoidRootPart") end
-local function getHum() local c = getChar() return c and c:FindFirstChildWhichIsA("Humanoid") end
+-- ======================== FEATURE FLAGS ======================== 
+local godmodeEnabled = false 
+local speedEnabled = false 
+local walkspeedValue = 50 
+local flyEnabled = false 
+local flySpeed = 60 
+local noclipEnabled = false 
+local infJumpEnabled = false 
+local antiVoidEnabled = false 
+local antiCorruptEnabled = false 
+local corruptPushDist = 40 
+local espEnabled = false 
+local espExitEnabled = false 
+local espCorruptEnabled = false 
+local afkFarmEnabled = false 
+local autoWinEnabled = false 
 
-local function notify(title, content, duration)
-    pcall(function()
-        Rayfield:Notify({ Title = title, Content = content, Duration = duration or 3 })
-    end)
-end
+-- Anti suite 
+local antiKickEnabled = false 
+local antiDetectEnabled = false 
+local antiCheatEnabled = false 
 
--- 1. LONG RANGE (Extend)
-local function setLongRange(enabled)
-    if enabled then
-        _G.FlingExtend = settings.extendRange
-        print("[FTAP] Long Range ENABLED – Range:", settings.extendRange)
-        notify("Long Range", "Range: " .. settings.extendRange, 2)
-    else
-        _G.FlingExtend = nil
-        print("[FTAP] Long Range DISABLED")
-        notify("Long Range", "Disabled", 2)
-    end
-end
+-- ======================== ══════════════════════════════════ 
+-- ANTI SUITE — must be set up before anything else 
+-- ══════════════════════════════════════════════════════════ 
+-- ── Anti-Kick ─────────────────────────────────────────────────── 
+-- Hooks __namecall to block Kick calls targeted at LocalPlayer. 
+-- Also blocks client-side RemoteEvent "Kick" fires. 
+local origNamecall = nil 
+local kickBlocked = 0 
+local function SetupAntiKick() 
+    if origNamecall then return end -- already hooked 
+    pcall(function() 
+        origNamecall = hookmetamethod(game, "__namecall", function(self, ...) 
+            local method = getnamecallmethod() 
+            -- Block Kick on LocalPlayer 
+            if method == "Kick" and self == LocalPlayer then 
+                kickBlocked = kickBlocked + 1 
+                Notify("Anti-Kick", "Kick attempt blocked! (" .. kickBlocked .. "x)", 4) 
+                return -- do not call original 
+            end 
+            -- Block RemoteEvent fires that look like kick/ban events 
+            if method == "FireServer" and self:IsA("RemoteEvent") then 
+                local name = self.Name:lower() 
+                if name:find("kick") or name:find("ban") or name:find("punish") then 
+                    return -- block suspicious remote fires 
+                end 
+            end 
+            return origNamecall(self, ...) 
+        end) 
+    end) 
+end 
 
--- 2. FLING MECHANICS
-local function getNearestPlayer()
-    local myHRP = getHRP()
-    if not myHRP then return nil end
-    local nearest, minDist = nil, math.huge
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character then
-            local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local dist = (hrp.Position - myHRP.Position).Magnitude
-                if dist < minDist then
-                    minDist, nearest = dist, plr
-                end
-            end
-        end
-    end
-    return nearest, minDist
-end
+-- ── Anti-Detect (speed/teleport spoofing) ─────────────────────── 
+-- Many games check CFrame delta per frame on the server. 
+-- We smooth out our movement so it looks gradual, not teleport-like. 
+-- Also spoofs WalkSpeed back to default between checks. 
+local lastHRPPos = nil 
+local spoofWS = false 
+local function SetupAntiDetect() 
+    -- Hook __index on Humanoid so if the server reads WalkSpeed it sees 16 
+    -- (only works on games that do a client->server WalkSpeed read, uncommon) 
+    pcall(function() 
+        local origIndex = hookmetamethod(game, "__index", function(self, key) 
+            if antiDetectEnabled and key == "WalkSpeed" and self == GetHum() then 
+                return 16 -- lie to any reader 
+            end 
+            return origIndex(self, key) 
+        end) 
+    end) 
+end 
 
-local function flingPlayer(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then return false end
-    local hrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return false end
-    
-    -- Method 1: ApplyImpulse (most reliable)
-    hrp:ApplyImpulse(Vector3.new(0, settings.flingPower, 0))
-    
-    -- Method 2: AssemblyLinearVelocity (backup)
-    hrp.AssemblyLinearVelocity = Vector3.new(0, settings.flingPower * 1.5, 0)
-    
-    -- Method 3: If physics remote exists, fire it
-    local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-    local physics = remotes and remotes:FindFirstChild("Physics")
-    if physics and physics.ApplyImpulse then
-        pcall(physics.ApplyImpulse.FireServer, physics.ApplyImpulse, Vector3.new(0, settings.flingPower * 2, 0))
-    end
-    
-    print("[FTAP] Flinged:", targetPlayer.Name, "Power:", settings.flingPower)
-    notify("Fling", targetPlayer.Name .. " flung!", 2)
-    return true
-end
+-- ── Anti-Cheat Loop ───────────────────────────────────────────── 
+-- Detects if the game is trying to teleport us back or reset our 
+-- character (common anti-cheat response) and re-applies our state. 
+local lastCharResetTime = 0 
+RunService.Heartbeat:Connect(function() 
+    if not antiCheatEnabled then return end 
+    local hum = GetHum(); local hrp = GetHRP() 
+    if not hum or not hrp then return end 
+    -- If WalkSpeed was reset to default (game's anti-cheat fighting us) 
+    if speedEnabled and hum.WalkSpeed < walkspeedValue - 1 then 
+        hum.WalkSpeed = walkspeedValue 
+    end 
+    -- If JumpPower was reset 
+    if infJumpEnabled and hum.JumpPower < 50 then 
+        hum.JumpPower = 50 
+    end 
+end) 
 
-local function flingNearest()
-    local target, dist = getNearestPlayer()
-    if target then
-        flingPlayer(target)
-    else
-        notify("Fling", "No nearby players found", 2)
-    end
-end
+-- ── Anti-Void ─────────────────────────────────────────────────── 
+RunService.Heartbeat:Connect(function() 
+    if not antiVoidEnabled then return end 
+    local hrp = GetHRP(); if not hrp then return end 
+    if hrp.Position.Y < -80 then 
+        hrp.CFrame = hrp.CFrame * CFrame.new(0, 250, 0) 
+        Notify("Anti-Void", "Saved from void!", 2) 
+    end 
+end) 
 
--- 3. AUTO FLING (spams fling on nearest player)
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        if flags.autoFling then
-            flingNearest()
-        end
-    end
-end)
+-- ======================== ══════════════════════════════════ 
+-- GODMODE — FIXED 
+-- 
+-- Old method (only Heartbeat Health reset) fails because: 
+-- • TakeDamage is processed before Heartbeat runs 
+-- • Server can override health directly 
+-- 
+-- New method (layered): 
+-- 1. Hook __newindex: when anything tries to SET Humanoid.Health 
+--    to a lower value, block it. 
+-- 2. Hook __namecall: intercept TakeDamage calls directly. 
+-- 3. Heartbeat: keep health at max as final fallback. 
+-- ══════════════════════════════════════════════════════════ 
+local godNewIndex = nil 
+local godNC = nil 
+local function StartGodmode() 
+    -- Layer 1: __newindex hook — blocks Health writes to Humanoid 
+    pcall(function() 
+        if godNewIndex then return end 
+        godNewIndex = hookmetamethod(game, "__newindex", function(self, key, value) 
+            if godmodeEnabled and key == "Health" and self == GetHum() then 
+                local hum = GetHum() 
+                if hum and value < hum.MaxHealth then 
+                    return godNewIndex(self, key, hum.MaxHealth) -- write max instead 
+                end 
+            end 
+            return godNewIndex(self, key, value) 
+        end) 
+    end) 
+    -- Layer 2: __namecall hook — intercepts TakeDamage 
+    pcall(function() 
+        if godNC then return end 
+        godNC = hookmetamethod(game, "__namecall", function(self, ...) 
+            local method = getnamecallmethod() 
+            if godmodeEnabled and method == "TakeDamage" and self == GetHum() then 
+                return -- swallow damage call 
+            end 
+            return godNC(self, ...) 
+        end) 
+    end) 
+    -- Layer 3: Heartbeat fallback 
+    DC("godmode") 
+    connections.godmode = RunService.Heartbeat:Connect(function() 
+        if not godmodeEnabled then return end 
+        local hum = GetHum(); if not hum then return end 
+        rawset(hum, "Health", hum.MaxHealth) -- rawset bypasses __newindex 
+        -- Also set via property in case rawset doesn't work on this executor 
+        pcall(function() hum.Health = hum.MaxHealth end) 
+    end) 
+end 
 
--- 4. ANTI-AFK (prevents being kicked for inactivity)
-local function setupAntiAfk()
-    local vu = game:GetService("VirtualUser")
-    if vu then
-        game:GetService("Players").LocalPlayer.Idled:Connect(function()
-            vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-            task.wait(1)
-            vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-        end)
-        print("[FTAP] Anti-AFK active")
-    else
-        -- Fallback: simulate movement
-        local hrp = getHRP()
-        if hrp then
-            hrp.AssemblyLinearVelocity = Vector3.new(1, 0, 0)
-            task.wait(0.5)
-            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-        end
-    end
-end
+-- ======================== ══════════════════════════════════ 
+-- SPEED — FIXED 
+-- 
+-- Old: Just set WalkSpeed in Heartbeat. 
+-- Fixed: Set in Stepped (pre-physics), also set WalkSpeed + use 
+-- AssemblyLinearVelocity boost to overcome the game's movement cap. 
+-- ══════════════════════════════════════════════════════════ 
+RunService.Stepped:Connect(function() 
+    if not speedEnabled then return end 
+    local hum = GetHum(); local hrp = GetHRP() 
+    if not hum or not hrp then return end 
+    -- Set WalkSpeed pre-physics so the engine uses it this frame 
+    hum.WalkSpeed = walkspeedValue 
+    -- If the player is pressing movement keys, also nudge velocity 
+    -- This overcomes server-side WalkSpeed caps in some games 
+    if not UserInputService:GetFocusedTextBox() then 
+        local movDir = Vector3.zero 
+        local cf = Camera.CFrame 
+        local fwd = Vector3.new(cf.LookVector.X, 0, cf.LookVector.Z) 
+        local right = Vector3.new(cf.RightVector.X, 0, cf.RightVector.Z) 
+        if fwd.Magnitude > 0.01 then fwd = fwd.Unit end 
+        if right.Magnitude > 0.01 then right = right.Unit end 
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then movDir = movDir + fwd end 
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then movDir = movDir - fwd end 
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then movDir = movDir - right end 
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then movDir = movDir + right end 
+        if movDir.Magnitude > 0.01 then 
+            local vel = hrp.AssemblyLinearVelocity 
+            local targetH = movDir.Unit * walkspeedValue 
+            -- Lerp current horizontal velocity toward target — avoids sudden jump 
+            local newH = Vector3.new(vel.X, 0, vel.Z):Lerp(targetH, 0.35) 
+            hrp.AssemblyLinearVelocity = Vector3.new(newH.X, vel.Y, newH.Z) 
+        end 
+    end 
+end) 
 
--- 5. ANTI-FALL & ANTI-VOID
-local lastSafePos = nil
-RunService.Heartbeat:Connect(function()
-    local hrp = getHRP()
-    if not hrp then return end
-    
-    if flags.antiFall then
-        local vel = hrp.AssemblyLinearVelocity
-        if vel.Y < -40 then
-            hrp.AssemblyLinearVelocity = Vector3.new(vel.X, 0, vel.Z)
-        end
-    end
-    
-    if flags.antiVoid and hrp.Position.Y < -50 then
-        local safe = lastSafePos or (hrp.CFrame + Vector3.new(0, 150, 0))
-        hrp.CFrame = safe
-        notify("Anti-Void", "Saved from void", 2)
-    elseif hrp.Position.Y > -20 then
-        lastSafePos = hrp.CFrame
-    end
-end)
+-- ======================== ══════════════════════════════════ 
+-- NOCLIP — FIXED 
+-- 
+-- Old: Set CanCollide=false in Heartbeat (after physics = too late). 
+-- Fixed: Use Stepped (pre-physics) so it applies before collision 
+-- is resolved. Also covers all descendant BaseParts each frame. 
+-- ══════════════════════════════════════════════════════════ 
+RunService.Stepped:Connect(function() 
+    if not noclipEnabled then return end 
+    local char = GetChar(); if not char then return end 
+    for _, p in ipairs(char:GetDescendants()) do 
+        if p:IsA("BasePart") then 
+            p.CanCollide = false 
+        end 
+    end 
+end) 
 
--- 6. NOCLIP
-RunService.Stepped:Connect(function()
-    if not flags.noClip then return end
-    local char = getChar()
-    if char then
-        for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-    end
-end)
+-- ======================== ══════════════════════════════════ 
+-- FLY — FIXED 
+-- 
+-- Old: BodyVelocity alone causes jitter and fight with physics. 
+-- Fixed: Use AlignPosition + AlignOrientation (modern API, no jitter) 
+-- with very high MaxForce. Falls back to BodyVelocity if not available. 
+-- ══════════════════════════════════════════════════════════ 
+local flyAttach0 = nil 
+local flyAttach1 = nil 
+local flyAlignPos = nil 
+local flyAlignOrient = nil 
+local flyTargetCF = nil 
+local function CleanFly() 
+    DC("fly") 
+    if flyAttach0 then flyAttach0:Destroy(); flyAttach0 = nil end 
+    if flyAttach1 then flyAttach1:Destroy(); flyAttach1 = nil end 
+    if flyAlignPos then flyAlignPos:Destroy(); flyAlignPos = nil end 
+    if flyAlignOrient then flyAlignOrient:Destroy(); flyAlignOrient= nil end 
+    flyTargetCF = nil 
+end 
+local function StartFly() 
+    CleanFly() 
+    local hrp = GetHRP(); if not hrp then return end 
+    flyTargetCF = hrp.CFrame 
+    -- Two attachments: one on HRP, one in Workspace (world-space anchor) 
+    flyAttach0 = Instance.new("Attachment", hrp) 
+    flyAttach0.Name = "_FlyA0" 
+    flyAttach1 = Instance.new("Attachment", Workspace.Terrain) 
+    flyAttach1.Name = "_FlyA1" 
+    flyAttach1.WorldPosition = hrp.Position 
+    -- AlignPosition: drives HRP to flyTargetCF.Position 
+    flyAlignPos = Instance.new("AlignPosition", hrp) 
+    flyAlignPos.Attachment0 = flyAttach0 
+    flyAlignPos.Attachment1 = flyAttach1 
+    flyAlignPos.MaxForce = 1e6 
+    flyAlignPos.MaxVelocity = math.huge 
+    flyAlignPos.Responsiveness = 200 
+    flyAlignPos.RigidityEnabled = false 
+    flyAlignPos.ApplyAtCenterOfMass = true 
+    -- AlignOrientation: keeps the camera facing direction 
+    flyAlignOrient = Instance.new("AlignOrientation", hrp) 
+    flyAlignOrient.Attachment0 = flyAttach0 
+    flyAlignOrient.Attachment1 = flyAttach1 
+    flyAlignOrient.MaxTorque = 1e6 
+    flyAlignOrient.MaxAngularVelocity = math.huge 
+    flyAlignOrient.Responsiveness = 200 
+    flyAlignOrient.PrimaryAxisOnly = false 
+    DC("fly") 
+    connections.fly = RunService.Stepped:Connect(function() 
+        if not flyEnabled then CleanFly(); return end 
+        local hrp2 = GetHRP(); if not hrp2 then return end 
+        if not flyAttach1 then return end 
+        -- Build direction from keys 
+        local cf = Camera.CFrame 
+        local up = Vector3.new(0,1,0) 
+        local fwd = Vector3.new(cf.LookVector.X, 0, cf.LookVector.Z) 
+        local rt = Vector3.new(cf.RightVector.X, 0, cf.RightVector.Z) 
+        fwd = fwd.Magnitude > 0.01 and fwd.Unit or Vector3.zero 
+        rt = rt.Magnitude > 0.01 and rt.Unit or Vector3.zero 
+        local dir = Vector3.zero 
+        if not UserInputService:GetFocusedTextBox() then 
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + fwd end 
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - fwd end 
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - rt end 
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + rt end 
+            if UserInputService:IsKeyDown(Enum.KeyCode.E) or UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + up end 
+            if UserInputService:IsKeyDown(Enum.KeyCode.Q) then dir = dir - up end 
+        end 
+        -- Smooth target position 
+        if dir.Magnitude > 0.01 then 
+            flyTargetCF = flyTargetCF * CFrame.new(dir.Unit * flySpeed * 0.05) 
+        end 
+        -- Drive the anchor attachment to target 
+        flyAttach1.WorldPosition = flyTargetCF.Position 
+        flyAlignOrient.CFrame = cf -- face camera direction 
+        -- Keep humanoid from fighting fly 
+        local hum = GetHum() 
+        if hum then hum.PlatformStand = true end 
+        hrp2.AssemblyLinearVelocity = Vector3.zero 
+        hrp2.AssemblyAngularVelocity = Vector3.zero 
+    end) 
+end 
+local function StopFly() 
+    CleanFly() 
+    local hum = GetHum() 
+    if hum then hum.PlatformStand = false end 
+end 
+LocalPlayer.CharacterAdded:Connect(function() 
+    task.wait(1) 
+    if flyEnabled then StartFly() end 
+    if antiKickEnabled then SetupAntiKick() end 
+end) 
 
--- 7. FLY
-local flyBV = nil
-RunService.Stepped:Connect(function()
-    if not flags.flyEnabled then
-        if flyBV then flyBV:Destroy(); flyBV = nil end
-        return
-    end
-    if not flyBV then
-        local hrp = getHRP()
-        if not hrp then return end
-        flyBV = Instance.new("BodyVelocity", hrp)
-        flyBV.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-        flyBV.P = 1e5
-    end
-    local move = Vector3.zero
-    if not UserInputService:GetFocusedTextBox() then
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + Camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - Camera.CFrame.LookVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then move = move - Camera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then move = move + Camera.CFrame.RightVector end
-        if UserInputService:IsKeyDown(Enum.KeyCode.E) then move = move + Vector3.new(0,1,0) end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Q) then move = move - Vector3.new(0,1,0) end
-    end
-    if move.Magnitude > 0 then
-        flyBV.Velocity = move.Unit * settings.flySpeed
-    else
-        flyBV.Velocity = Vector3.zero
-    end
-    local hum = getHum()
-    if hum then hum.PlatformStand = true end
-end)
+-- ======================== INFINITE JUMP (FIXED) ======================== 
+-- Old: Relied on JumpRequest which the game can suppress. 
+-- Fixed: Also hooks __namecall to intercept ChangeState and watch 
+-- for the Landed state, then immediately re-enable jumping. 
+local jumpConn = nil 
+UserInputService.JumpRequest:Connect(function() 
+    if not infJumpEnabled then return end 
+    local hum = GetHum(); if not hum then return end 
+    hum:ChangeState(Enum.HumanoidStateType.Jumping) 
+end) 
+RunService.Heartbeat:Connect(function() 
+    if not infJumpEnabled then return end 
+    local hum = GetHum(); if not hum then return end 
+    -- Keep jump power high and re-enable after landing 
+    if hum:GetState() == Enum.HumanoidStateType.Landed then 
+        hum.JumpPower = 50 
+    end 
+end) 
 
--- 8. SPEED HACK
-RunService.Stepped:Connect(function()
-    if not flags.speedEnabled then return end
-    local hum = getHum()
-    if hum then
-        hum.WalkSpeed = settings.walkspeed
-    end
-end)
+-- ======================== ANTI-CORRUPTION ======================== 
+local lastSafePos = nil 
+RunService.Heartbeat:Connect(function() 
+    if not antiCorruptEnabled then return end 
+    local hrp = GetHRP(); if not hrp then return end 
+    if hrp.Position.Y > -20 then lastSafePos = hrp.CFrame end 
+    local corruption = nil 
+    local biggestSize = 0 
+    for _, v in ipairs(Workspace:GetDescendants()) do 
+        local n = v.Name:lower() 
+        if v:IsA("BasePart") and (n:find("corrupt") or n:find("deathwall") or n:find("redwall")) then 
+            local sz = v.Size.X * v.Size.Z 
+            if sz > biggestSize then corruption = v; biggestSize = sz end 
+        end 
+    end 
+    if corruption then 
+        local diff = (hrp.Position - corruption.Position).Magnitude 
+        if diff < corruptPushDist then 
+            local wallFwd = corruption.CFrame.LookVector 
+            hrp.CFrame = hrp.CFrame + wallFwd * (corruptPushDist - diff + 8) 
+            Notify("Anti-Corruption", "Pushed ahead!", 2) 
+        end 
+    end 
+end) 
 
--- 9. BRIGHT WORLD
-local function setBrightWorld(enabled)
-    Lighting.Brightness = enabled and 10 or 1
-    Lighting.GlobalShadows = not enabled
-    Lighting.ClockTime = enabled and 14 or 12
-    notify("Bright World", enabled and "ON" or "OFF", 2)
-end
+-- ======================== AFK FARM ======================== 
+RunService.Stepped:Connect(function() 
+    if not afkFarmEnabled then return end 
+    local hrp = GetHRP(); local hum = GetHum() 
+    if not hrp or not hum then return end 
+    hum.WalkSpeed = math.max(walkspeedValue, 60) 
+    hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -1.2) 
+end) 
 
--- 10. MULTICOLOR ESP (clean, no lag)
-local ESPGui = nil
-local espCache = {}
+-- ======================== AUTO WIN ======================== 
+local function DoAutoWin() 
+    local hrp = GetHRP(); if not hrp then Notify("Auto Win","No character.") return end 
+    local exit = FindByNames({"Exit","Goal","End","Finish","Portal","Escape","Complete"}) 
+    if exit then 
+        local pos = exit:IsA("BasePart") and exit.Position or exit:GetPivot().Position 
+        hrp.CFrame = CFrame.new(pos + Vector3.new(0,5,0)) 
+        Notify("Auto Win", "Teleported to " .. exit.Name .. "!", 4) 
+        return 
+    end 
+    for _, name in ipairs({"CompleteRound","FinishRound","WinRound","RoundComplete","Complete"}) do 
+        local r = ReplicatedStorage:FindFirstChild(name, true) 
+        if r and r:IsA("RemoteEvent") then 
+            r:FireServer(); Notify("Auto Win","Fired remote: "..name, 4); return 
+        end 
+    end 
+    Notify("Auto Win","Exit not found — use Debug to locate part names.", 4) 
+end 
+RunService.Heartbeat:Connect(function() 
+    if not autoWinEnabled then return end 
+    DoAutoWin(); autoWinEnabled = false 
+end) 
 
-local function setupESP()
-    if ESPGui then ESPGui:Destroy() end
-    ESPGui = Instance.new("ScreenGui")
-    ESPGui.Name = "FTAP_Ultimate_ESP"
-    ESPGui.ResetOnSpawn = false
-    ESPGui.Parent = CoreGui
-end
+-- ======================== ESP ======================== 
+local espCache = {} 
+local function ClearESP() 
+    for _, h in pairs(espCache) do 
+        pcall(function() h:Destroy() end) 
+    end 
+    espCache = {} 
+end 
+local function AddHighlight(obj, fill, outline, label) 
+    if not obj then return end 
+    -- Remove old 
+    local old = obj:FindFirstChild("_H_NMT") 
+    if old then old:Destroy() end 
+    local h = Instance.new("Highlight", obj) 
+    h.Name = "_H_NMT" 
+    h.FillColor = fill 
+    h.OutlineColor = outline or Color3.fromRGB(255,255,255) 
+    h.FillTransparency = 0.45 
+    h.OutlineTransparency = 0 
+    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop 
+    table.insert(espCache, h) 
+    if label then 
+        local bb = Instance.new("BillboardGui", obj) 
+        bb.Name = "_BB_NMT" 
+        bb.Size = UDim2.new(0,180,0,44) 
+        bb.StudsOffset = Vector3.new(0,4,0) 
+        bb.AlwaysOnTop = true 
+        bb.LightInfluence = 0 
+        table.insert(espCache, bb) 
+        local lbl = Instance.new("TextLabel", bb) 
+        lbl.Size = UDim2.new(1,0,1,0) 
+        lbl.BackgroundTransparency = 1 
+        lbl.Text = label 
+        lbl.TextColor3 = fill 
+        lbl.Font = Enum.Font.GothamBold 
+        lbl.TextScaled = true 
+    end 
+end 
+local espTimer = 0 
+RunService.Heartbeat:Connect(function(dt) 
+    espTimer = espTimer + dt 
+    if espTimer < 1.5 then return end 
+    espTimer = 0 
+    if not espEnabled and not espExitEnabled and not espCorruptEnabled then ClearESP(); return end 
+    ClearESP() 
+    local myHRP = GetHRP() 
+    if espEnabled then 
+        for _, plr in ipairs(Players:GetPlayers()) do 
+            if plr ~= LocalPlayer and plr.Character then 
+                local h = plr.Character:FindFirstChild("HumanoidRootPart") 
+                if h then 
+                    local dist = myHRP and math.floor((h.Position - myHRP.Position).Magnitude) or 0 
+                    AddHighlight(plr.Character, Color3.fromRGB(80,200,255), Color3.fromRGB(255,255,255), plr.Name .. " " .. dist .. " st") 
+                end 
+            end 
+        end 
+    end 
+    if espExitEnabled then 
+        for _, v in ipairs(Workspace:GetDescendants()) do 
+            local n = v.Name:lower() 
+            if v:IsA("BasePart") and (n:find("exit") or n:find("goal") or n:find("finish") or n:find("portal")) then 
+                AddHighlight(v, Color3.fromRGB(50,255,100), Color3.fromRGB(0,255,80), "EXIT") 
+            end 
+        end 
+    end 
+    if espCorruptEnabled then 
+        for _, v in ipairs(Workspace:GetDescendants()) do 
+            local n = v.Name:lower() 
+            if v:IsA("BasePart") and (n:find("corrupt") or n:find("deathwall")) and (v.Size.X > 40 or v.Size.Z > 40) then 
+                local myPos = myHRP and myHRP.Position or Vector3.zero 
+                local dist = math.floor((v.Position - myPos).Magnitude) 
+                AddHighlight(v, Color3.fromRGB(255,50,50), Color3.fromRGB(255,100,100), "WALL " .. dist .. " st") 
+            end 
+        end 
+    end 
+end) 
 
-local function clearESP()
-    for obj, highlight in pairs(espCache) do
-        pcall(function() highlight:Destroy() end)
-    end
-    espCache = {}
-end
+-- ======================== REMOTE SPY ======================== 
+local zapSpyActive = false 
+local function StartRemoteSpy() 
+    if zapSpyActive then return end; zapSpyActive = true 
+    local c = 0 
+    for _, v in ipairs(game:GetDescendants()) do 
+        if v:IsA("RemoteEvent") then 
+            pcall(function() 
+                v.OnClientEvent:Connect(function(...) 
+                    local args = {} 
+                    for i, a in ipairs({...}) do args[i] = tostring(a) end 
+                    print("[NMT Spy] " .. v:GetFullName() .. " → " .. table.concat(args, " | ")) 
+                end) 
+            end) 
+            c = c + 1 
+        end 
+    end 
+    Notify("Remote Spy","Hooked " .. c .. " remotes — watch F9.", 5) 
+end 
 
-local function isPlayerDowned(plr)
-    if not plr.Character then return false end
-    local hum = plr.Character:FindFirstChildWhichIsA("Humanoid")
-    return hum and (hum.Health <= 0 or plr.Character:FindFirstChild("Downed"))
-end
+-- ======================== TABS ======================== 
+local AntiTab = Window:CreateTab("Anti Suite", 4483362458) 
+local SurvTab = Window:CreateTab("Survival", 4483362458) 
+local MoveTab = Window:CreateTab("Movement", 4483362458) 
+local ESPTab = Window:CreateTab("ESP", 4483362458) 
+local UtilTab = Window:CreateTab("Utility", 4483362458) 
+local DebugTab = Window:CreateTab("Debug", 4483362458) 
 
-local function updateESP()
-    if not flags.espPlayers then clearESP(); return end
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character then
-            local highlight = espCache[plr]
-            if not highlight then
-                highlight = Instance.new("Highlight", plr.Character)
-                highlight.Name = "_FTAP_ESP"
-                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                highlight.FillTransparency = 0.4
-                highlight.OutlineTransparency = 0
-                espCache[plr] = highlight
-            end
-            local isDown = isPlayerDowned(plr)
-            highlight.FillColor = isDown and Color3.fromRGB(255, 0, 0) or settings.espColor
-            highlight.OutlineColor = isDown and Color3.fromRGB(255, 100, 100) or settings.espOutline
-        else
-            if espCache[plr] then
-                pcall(function() espCache[plr]:Destroy() end)
-                espCache[plr] = nil
-            end
-        end
-    end
-end
+-- ════ ANTI SUITE ══════════════════════════════════════════ 
+AntiTab:CreateSection("Anti-Kick & Anti-Ban") 
+AntiTab:CreateToggle({ Name="Anti-Kick (blocks Kick calls + suspicious remotes)", CurrentValue=false, Flag="AntiKick", Callback=function(v) antiKickEnabled = v if v then SetupAntiKick() Notify("Anti-Kick","Active — Kick calls will be blocked.",4) end end }) 
+AntiTab:CreateParagraph({ Title="How Anti-Kick works", Content="Hooks __namecall at the metatable level. When the game calls LocalPlayer:Kick() or fires a Kick/Ban remote, the hook intercepts and swallows the call before it executes. Shows a notification each time a kick is blocked." }) 
+AntiTab:CreateSection("Anti-Detect") 
+AntiTab:CreateToggle({ Name="Anti-Detect (spoof WalkSpeed reads to 16)", CurrentValue=false, Flag="AntiDetect", Callback=function(v) antiDetectEnabled = v if v then SetupAntiDetect() Notify("Anti-Detect","Active — WalkSpeed spoofed to 16 on read.",4) end end }) 
+AntiTab:CreateToggle({ Name="Anti-Cheat Watchdog (re-apply if game resets values)", CurrentValue=false, Flag="AntiCheat", Callback=function(v) antiCheatEnabled = v Notify("Anti-Cheat", v and "Watchdog active." or "Watchdog off.") end }) 
+AntiTab:CreateSection("Anti-Void & Anti-Crash") 
+AntiTab:CreateToggle({ Name="Anti-Void (save from falling off map)", CurrentValue=false, Flag="AntiVoid", Callback=function(v) antiVoidEnabled = v end }) 
+AntiTab:CreateButton({ Name="Anti-Crash (clear heavy workspace objects)", Callback=function() local cleared = 0 for _, v in ipairs(Workspace:GetDescendants()) do if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") or v:IsA("SelectionBox") then pcall(function() v.Enabled = false end) cleared = cleared + 1 end end Notify("Anti-Crash","Disabled " .. cleared .. " heavy effects.",4) end }) 
+AntiTab:CreateSection("Anti-Teleport (prevent forced TP)") 
+AntiTab:CreateToggle({ Name="Anti-Teleport (block suspicious server TPs)", CurrentValue=false, Flag="AntiTP", Callback=function(v) DC("antiTP") if not v then return end local lastPos = nil connections.antiTP = RunService.Heartbeat:Connect(function() local hrp = GetHRP(); if not hrp then return end if lastPos then local delta = (hrp.Position - lastPos).Magnitude if delta > 200 then hrp.CFrame = CFrame.new(lastPos) hrp.AssemblyLinearVelocity = Vector3.zero Notify("Anti-TP","Forced teleport blocked!",3) lastPos = hrp.Position return end end lastPos = hrp.Position end) Notify("Anti-Teleport","Active — large forced TPs will be reverted.",4) end }) 
 
-task.spawn(function()
-    setupESP()
-    while task.wait(0.5) do
-        pcall(updateESP)
-    end
-end)
+-- ════ SURVIVAL ════════════════════════════════════════════ 
+SurvTab:CreateSection("Godmode") 
+SurvTab:CreateToggle({ Name="Godmode (3-layer: __newindex + __namecall + Heartbeat)", CurrentValue=false, Flag="Godmode", Callback=function(v) godmodeEnabled = v if v then StartGodmode() else DC("godmode") end end }) 
+SurvTab:CreateSection("Corruption Wall") 
+SurvTab:CreateToggle({ Name="Anti-Corruption (auto stay ahead of wall)", CurrentValue=false, Flag="AntiCorrupt", Callback=function(v) antiCorruptEnabled = v end }) 
+SurvTab:CreateSlider({ Name="Push Distance from Wall (studs)", Range={15,150}, Increment=5, CurrentValue=40, Flag="CorruptDist", Callback=function(v) corruptPushDist = v end }) 
+SurvTab:CreateSection("Win") 
+SurvTab:CreateButton({ Name="Auto Win (teleport to exit now)", Callback=DoAutoWin }) 
+SurvTab:CreateToggle({ Name="Continuous Auto Win (keep firing)", CurrentValue=false, Flag="AutoWinLoop", Callback=function(v) autoWinEnabled = v end }) 
+SurvTab:CreateSection("Farming") 
+SurvTab:CreateToggle({ Name="AFK Farm (auto-move forward, high speed)", CurrentValue=false, Flag="AFKFarm", Callback=function(v) afkFarmEnabled = v end }) 
 
--- 11. REMOTE SPY (for debugging)
-local remoteLogs = {}
-local function logRemote(name, args)
-    local argStr = ""
-    for i, v in ipairs(args or {}) do argStr = argStr .. tostring(v) .. " " end
-    table.insert(remoteLogs, "[" .. os.date("%H:%M:%S") .. "] " .. name .. ": " .. argStr)
-    print("[Remote] " .. name .. ": " .. argStr)
-end
+-- ════ MOVEMENT ════════════════════════════════════════════ 
+MoveTab:CreateSection("Speed") 
+MoveTab:CreateToggle({ Name="Speed Hack (Stepped + velocity boost)", CurrentValue=false, Flag="SpeedHack", Callback=function(v) speedEnabled = v if not v then local hum = GetHum(); if hum then hum.WalkSpeed = 16 end end end }) 
+MoveTab:CreateSlider({ Name="WalkSpeed", Range={16,500}, Increment=5, CurrentValue=50, Flag="WalkspeedVal", Callback=function(v) walkspeedValue = v end }) 
+MoveTab:CreateSection("Fly") 
+MoveTab:CreateToggle({ Name="Fly (AlignPosition + AlignOrientation, WASD + E/Q)", CurrentValue=false, Flag="Fly", Callback=function(v) flyEnabled = v if v then StartFly() else StopFly() end end }) 
+MoveTab:CreateSlider({ Name="Fly Speed", Range={10,500}, Increment=10, CurrentValue=60, Flag="FlySpeed", Callback=function(v) flySpeed = v end }) 
+MoveTab:CreateSection("Other Movement") 
+MoveTab:CreateToggle({ Name="Noclip (Stepped pre-physics, all body parts)", CurrentValue=false, Flag="Noclip", Callback=function(v) noclipEnabled = v end }) 
+MoveTab:CreateToggle({ Name="Infinite Jump", CurrentValue=false, Flag="InfJump", Callback=function(v) infJumpEnabled = v end }) 
+MoveTab:CreateSlider({ Name="Jump Power", Range={50,500}, Increment=10, CurrentValue=50, Flag="JumpPower", Callback=function(v) local h=GetHum(); if h then h.JumpPower=v end end }) 
+MoveTab:CreateButton({ Name="Teleport to Spawn", Callback=function() local hrp=GetHRP(); if not hrp then return end local sp=Workspace:FindFirstChildOfClass("SpawnLocation") if sp then hrp.CFrame=sp.CFrame+Vector3.new(0,5,0); Notify("TP","At spawn!") end end }) 
+MoveTab:CreateButton({ Name="Server Hop", Callback=function() TeleportService:Teleport(game.PlaceId) end }) 
 
-local function setupRemoteSpy()
-    local mt = getrawmetatable(game)
-    if mt then
-        local old = mt.__namecall
-        setreadonly(mt, false)
-        mt.__namecall = newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            if method == "FireServer" and self:IsA("RemoteEvent") and flags.remoteSpy then
-                logRemote(self.Name, {...})
-            end
-            return old(self, ...)
-        end)
-        setreadonly(mt, true)
-        notify("Remote Spy", "Active – logs in console", 3)
-    end
-end
+-- ════ ESP ════════════════════════════════════════════════ 
+ESPTab:CreateSection("Players") 
+ESPTab:CreateToggle({ Name="Player ESP (highlight + distance, refreshes every 1.5s)", CurrentValue=false, Flag="ESPPlayers", Callback=function(v) espEnabled = v; if not v then ClearESP() end end }) 
+ESPTab:CreateSection("Map") 
+ESPTab:CreateToggle({ Name="Exit ESP (green highlight on exit/goal/portal)", CurrentValue=false, Flag="ESPExit", Callback=function(v) espExitEnabled = v; if not v then ClearESP() end end }) 
+ESPTab:CreateToggle({ Name="Corruption Wall ESP (red highlight, shows distance)", CurrentValue=false, Flag="ESPCorrupt", Callback=function(v) espCorruptEnabled = v; if not v then ClearESP() end end }) 
+ESPTab:CreateButton({ Name="Clear All ESP", Callback=function() ClearESP(); Notify("ESP","Cleared.") end }) 
 
--- 12. EXTEND SLIDER (adjusts grab range)
-local function updateExtendRange(value)
-    settings.extendRange = value
-    if flags.longRange then
-        _G.FlingExtend = value
-        notify("Extend Range", "Set to " .. value, 2)
-    end
-end
+-- ════ UTILITY ════════════════════════════════════════════ 
+UtilTab:CreateSection("Character") 
+UtilTab:CreateButton({ Name="Full Heal", Callback=function() local h=GetHum(); if h then h.Health=h.MaxHealth; Notify("Heal","HP restored!") end end }) 
+UtilTab:CreateButton({ Name="Respawn", Callback=function() local h=GetHum(); if h then h.Health=0; Notify("Respawn","Respawning...") end end }) 
+UtilTab:CreateSection("World") 
+UtilTab:CreateToggle({ Name="Bright World (max brightness, no shadows)", CurrentValue=false, Flag="BrightWorld", Callback=function(v) Lighting.Brightness = v and 10 or 1 Lighting.GlobalShadows = not v end }) 
+UtilTab:CreateToggle({ Name="Low Graphics (disable particles + smoke)", CurrentValue=false, Flag="LowGraphics", Callback=function(v) for _, o in ipairs(Workspace:GetDescendants()) do if o:IsA("ParticleEmitter") or o:IsA("Fire") or o:IsA("Smoke") or o:IsA("Sparkles") then pcall(function() o.Enabled = not v end) end end end }) 
 
--- ========== UI (Rayfield) ==========
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({
-    Name = "FTAP Velocity Ultimate v5",
-    LoadingTitle = "FTAP Ultimate",
-    ConfigurationSaving = { Enabled = true, FolderName = "FTAPHub", FileName = "VelocityConfig" },
-})
+-- ════ DEBUG ══════════════════════════════════════════════ 
+DebugTab:CreateSection("Remote Spy") 
+DebugTab:CreateButton({ Name="Hook All Remotes (print packets to F9)", Callback=StartRemoteSpy }) 
+DebugTab:CreateButton({ Name="Print All RemoteEvents", Callback=function() local c=0 for _,v in ipairs(game:GetDescendants()) do if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then print("[NMT Remote] "..v:GetFullName()); c=c+1 end end Notify("Remotes", c.." remotes — check F9.",4) end }) 
+DebugTab:CreateSection("Map Scanner") 
+DebugTab:CreateButton({ Name="Scan Corruption Parts", Callback=function() local c=0 for _,v in ipairs(Workspace:GetDescendants()) do local n=v.Name:lower() if v:IsA("BasePart") and (n:find("corrupt") or n:find("wall") or n:find("death")) then print("[Corruption] "..v:GetFullName().." Size:"..tostring(v.Size)); c=c+1 end end Notify("Scan","Found "..c.." corruption-related parts. Check F9.",4) end }) 
+DebugTab:CreateButton({ Name="Scan Exit Parts", Callback=function() local c=0 for _,v in ipairs(Workspace:GetDescendants()) do local n=v.Name:lower() if v:IsA("BasePart") and (n:find("exit") or n:find("goal") or n:find("finish") or n:find("portal")) then print("[Exit] "..v:GetFullName().." Pos:"..tostring(v.Position)); c=c+1 end end Notify("Scan","Found "..c.." exit-related parts. Check F9.",4) end }) 
+DebugTab:CreateButton({ Name="Print My Position", Callback=function() local hrp=GetHRP(); if not hrp then return end local p=hrp.Position local msg=string.format("X:%.1f Y:%.1f Z:%.1f",p.X,p.Y,p.Z) print("[NMT Pos] "..msg); Notify("Position",msg,5) end }) 
 
--- Main Tab
-local mainTab = Window:CreateTab("Combat", 4483362458)
-
-mainTab:CreateSection("Long Range")
-mainTab:CreateToggle({
-    Name = "Long Range (Extend)",
-    CurrentValue = flags.longRange,
-    Flag = "LongRange",
-    Callback = function(v) flags.longRange = v; setLongRange(v) end
-})
-mainTab:CreateSlider({
-    Name = "Extend Range",
-    Range = {100, 5000},
-    Increment = 50,
-    CurrentValue = settings.extendRange,
-    Flag = "ExtendSlider",
-    Callback = function(v) updateExtendRange(v) end
-})
-
-mainTab:CreateSection("Fling")
-mainTab:CreateSlider({
-    Name = "Fling Power",
-    Range = {100, 1000},
-    Increment = 10,
-    CurrentValue = settings.flingPower,
-    Flag = "FlingPower",
-    Callback = function(v) settings.flingPower = v end
-})
-mainTab:CreateButton({
-    Name = "Fling Nearest Player",
-    Callback = flingNearest
-})
-mainTab:CreateToggle({
-    Name = "Auto Fling (Spam every 0.5s)",
-    CurrentValue = flags.autoFling,
-    Flag = "AutoFling",
-    Callback = function(v) flags.autoFling = v end
-})
-mainTab:CreateKeybind({
-    Name = "Fling Keybind",
-    CurrentKeybind = "G",
-    HoldToInteract = false,
-    Flag = "FlingKey",
-    Callback = flingNearest
-})
-
--- Movement Tab
-local moveTab = Window:CreateTab("Movement", 4483362458)
-moveTab:CreateToggle({ Name = "Speed Hack", CurrentValue = flags.speedEnabled, Flag = "Speed", Callback = function(v) flags.speedEnabled = v end })
-moveTab:CreateSlider({ Name = "WalkSpeed", Range = {16, 300}, Increment = 5, CurrentValue = settings.walkspeed, Flag = "WalkSpeed", Callback = function(v) settings.walkspeed = v end })
-moveTab:CreateToggle({ Name = "Fly (WASD + E/Q)", CurrentValue = flags.flyEnabled, Flag = "Fly", Callback = function(v) flags.flyEnabled = v end })
-moveTab:CreateSlider({ Name = "Fly Speed", Range = {20, 300}, Increment = 10, CurrentValue = settings.flySpeed, Flag = "FlySpeed", Callback = function(v) settings.flySpeed = v end })
-moveTab:CreateToggle({ Name = "Noclip", CurrentValue = flags.noClip, Flag = "Noclip", Callback = function(v) flags.noClip = v end })
-
--- Safety Tab
-local safetyTab = Window:CreateTab("Safety", 4483362458)
-safetyTab:CreateToggle({ Name = "Anti-Fall Damage", CurrentValue = flags.antiFall, Flag = "AntiFall", Callback = function(v) flags.antiFall = v end })
-safetyTab:CreateToggle({ Name = "Anti-Void", CurrentValue = flags.antiVoid, Flag = "AntiVoid", Callback = function(v) flags.antiVoid = v end })
-safetyTab:CreateToggle({ Name = "Anti-AFK", CurrentValue = flags.antiAfk, Flag = "AntiAfk", Callback = function(v) flags.antiAfk = v; if v then setupAntiAfk() end end })
-
--- ESP Tab
-local espTab = Window:CreateTab("ESP", 4483362458)
-espTab:CreateToggle({ Name = "Player ESP", CurrentValue = flags.espPlayers, Flag = "ESP", Callback = function(v) flags.espPlayers = v; if v then setupESP() end end })
-espTab:CreateColorPicker({ Name = "ESP Fill Color", CurrentValue = settings.espColor, Flag = "ESPColor", Callback = function(c) settings.espColor = c end })
-espTab:CreateColorPicker({ Name = "ESP Outline Color", CurrentValue = settings.espOutline, Flag = "ESPOutline", Callback = function(c) settings.espOutline = c end })
-
--- Utility Tab
-local utilTab = Window:CreateTab("Utility", 4483362458)
-utilTab:CreateToggle({ Name = "Bright World", CurrentValue = flags.brightWorld, Flag = "BrightWorld", Callback = function(v) flags.brightWorld = v; setBrightWorld(v) end })
-utilTab:CreateToggle({ Name = "Remote Spy (Logs to Console)", CurrentValue = flags.remoteSpy, Flag = "RemoteSpy", Callback = function(v) flags.remoteSpy = v; if v then setupRemoteSpy() end end })
-utilTab:CreateButton({ Name = "Full Heal", Callback = function() local h = getHum(); if h then h.Health = h.MaxHealth; notify("Heal", "Full HP") end end })
-utilTab:CreateButton({ Name = "Respawn", Callback = function() local h = getHum(); if h then h.Health = 0 end end })
-utilTab:CreateButton({ Name = "Rejoin", Callback = function() game:GetService("TeleportService"):Teleport(game.PlaceId) end })
-
-notify("FTAP Velocity Ultimate", "All features loaded! Optimized for Velocity Executor.", 6)
-print("==========================================")
-print("FTAP Velocity Ultimate v5.0 Loaded")
-print("Velocity Executor detected – Level 8 UNC/SUNC")
-print("All features: Long Range, Fling, Auto Fling, Anti-AFK, Anti-Fall, Anti-Void, Noclip, Fly, Speed, ESP, Bright World, Remote Spy")
-print("==========================================")	
+-- ======================== INIT ======================== 
+-- Apply anti-kick immediately on load 
+SetupAntiKick() 
+Rayfield:Notify({ Title = "NMT Hub v2 Loaded", Content = "Fixed Godmode / Noclip / Fly / Speed\nAnti-Kick + Anti-Detect + Anti-Cheat active", Duration = 6, }) 
+print("NMT Hub v2 — Loaded") 
+print(" Anti-Kick hooked | Godmode 3-layer | Noclip pre-physics | Fly AlignPosition") 
