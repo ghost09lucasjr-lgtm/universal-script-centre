@@ -18,3 +18,6 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/ghost09lucasjr-lgtm/u
 
 -- Script_loader.lua
  loadstring(game:HttpGet("https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/refs/heads/main/Script_Loader.lua"))()
+
+-- No More Time.
+loadstring(game:HttpGet("https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/refs/heads/main/No%20more%20time."))()
