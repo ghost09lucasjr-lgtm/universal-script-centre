@@ -17,4 +17,4 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/ghost09lucasjr-lgtm/u
  loadstring(game:HttpGet("https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/refs/heads/main/Zoom%20script."))()
 
 -- Script_loader.lua
- loadstring(game:HttpGet("https://github.com/ghost09lucasjr-lgtm/universal-script-centre/blob/main/Script_Loader.lua"))()
+ loadstring(game:HttpGet("https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/refs/heads/main/Script_Loader.lua"))()
