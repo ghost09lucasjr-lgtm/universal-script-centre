@@ -1,222 +1,421 @@
--- Universal Script Centre Loader v3 (Anti-Stuck + Timeout)
+--[[
+    Universal Script Centre – Premium Glass Theme
+    Grey/Black with glassmorphic overlay, draggable, toggleable, auto-execute.
+    Uses your reliable loading method.
+--]]
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
 
+-- =========================== SCRIPT DATABASE ===========================
 local Scripts = {
-    {Name = "No More Time", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/main/No%20more%20time."},
-    {Name = "Evade Exploit", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/main/Evade%20Exploit"},
-    {Name = "Modded Pshade", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/main/Modded%20Pshade"},
-    {Name = "First Person Model", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/main/first%20person%20model"},
-    {Name = "ThirdPerson Force", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/main/ThirdPerson%20Force"},
-    {Name = "Vehicle Modifier", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/main/Vehiclemodifier.lua"},
-    {Name = "Zoom Script", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/main/Zoom%20script."},
+    {Name = "Infinite Yield", URL = "https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"},
+    {Name = "Evade Exploit", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/refs/heads/main/Evade%20Exploit"},
+    {Name = "No More Time", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/refs/heads/main/No%20more%20time."},
+    {Name = "Modded Pshade", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/refs/heads/main/Modded%20Pshade"},
+    {Name = "First Person Model", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/refs/heads/main/first%20person%20model"},
+    {Name = "ThirdPerson Force", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/refs/heads/main/ThirdPerson%20Force"},
+    {Name = "Vehicle Modifier", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/refs/heads/main/Vehiclemodifier.lua"},
+    {Name = "Zoom Script", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/refs/heads/main/Zoom%20script."},
+    {Name = "Script Loader", URL = "https://raw.githubusercontent.com/ghost09lucasjr-lgtm/universal-script-centre/refs/heads/main/Script_Loader.lua"},
 }
 
-local SelectedScript = nil
-
+-- =========================== UI CREATION ===========================
 local GUI = Instance.new("ScreenGui")
-GUI.Name = "USCLoader"
+GUI.Name = "UniversalScriptCentre"
 GUI.ResetOnSpawn = false
+GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 GUI.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
+-- Main Frame (glassmorphic grey/black)
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 390, 0, 490)
-MainFrame.Position = UDim2.new(0.5, -195, 0.5, -245)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 22)
-MainFrame.Active = true
-MainFrame.Draggable = true
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 450, 0, 550)
+MainFrame.Position = UDim2.new(0.5, -225, 0.5, -275)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+MainFrame.BackgroundTransparency = 0.08
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
 MainFrame.Parent = GUI
 
+-- Corner rounding
 local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 12)
+Corner.CornerRadius = UDim.new(0, 14)
 Corner.Parent = MainFrame
 
+-- Subtle stroke
 local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(55, 55, 65)
+Stroke.Color = Color3.fromRGB(70, 70, 90)
 Stroke.Thickness = 1.5
+Stroke.Transparency = 0.4
 Stroke.Parent = MainFrame
 
--- Title Bar
+-- Glass overlay (the nice effect you liked)
+local GlassOverlay = Instance.new("Frame")
+GlassOverlay.Size = UDim2.fromScale(1, 1)
+GlassOverlay.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+GlassOverlay.BackgroundTransparency = 0.25
+GlassOverlay.BorderSizePixel = 0
+GlassOverlay.Parent = MainFrame
+local GlassCorner = Instance.new("UICorner")
+GlassCorner.CornerRadius = UDim.new(0, 14)
+GlassCorner.Parent = GlassOverlay
+
+-- Title Bar (draggable)
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, 0, 0, 46)
-TitleBar.BackgroundColor3 = Color3.fromRGB(26, 26, 30)
+TitleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+TitleBar.BackgroundTransparency = 0.2
+TitleBar.BorderSizePixel = 0
 TitleBar.Parent = MainFrame
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -100, 1, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "Universal Script Centre"
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 17
-Title.TextColor3 = Color3.fromRGB(225, 225, 235)
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = TitleBar
-local TitlePad = Instance.new("UIPadding")
-TitlePad.PaddingLeft = UDim.new(0, 16)
-TitlePad.Parent = Title
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 14)
+TitleCorner.Parent = TitleBar
 
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 34, 0, 34)
-CloseBtn.Position = UDim2.new(1, -42, 0, 6)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(190, 45, 45)
-CloseBtn.Text = "✕"
-CloseBtn.TextColor3 = Color3.new(1,1,1)
-CloseBtn.TextSize = 18
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.Parent = TitleBar
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -70, 1, 0)
+TitleLabel.Position = UDim2.new(0, 18, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Universal Script Centre"
+TitleLabel.Font = Enum.Font.GothamSemibold
+TitleLabel.TextSize = 17
+TitleLabel.TextColor3 = Color3.fromRGB(230, 230, 250)
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TitleBar
 
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 8)
-CloseCorner.Parent = CloseBtn
+-- Minimize Button
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.new(0, 34, 0, 34)
+MinimizeBtn.Position = UDim2.new(1, -44, 0, 6)
+MinimizeBtn.BackgroundTransparency = 1
+MinimizeBtn.Text = "−"
+MinimizeBtn.TextColor3 = Color3.fromRGB(200, 200, 220)
+MinimizeBtn.TextSize = 30
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.Parent = TitleBar
 
--- Scroll
-local Scroll = Instance.new("ScrollingFrame")
-Scroll.Size = UDim2.new(1, -20, 0, 310)
-Scroll.Position = UDim2.new(0, 10, 0, 56)
-Scroll.BackgroundColor3 = Color3.fromRGB(24, 24, 27)
-Scroll.ScrollBarThickness = 6
-Scroll.ScrollBarImageColor3 = Color3.fromRGB(70, 70, 85)
-Scroll.Parent = MainFrame
+-- Drag logic
+local dragging = false
+local dragStart, startPos
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
 
-local ScrollCorner = Instance.new("UICorner")
-ScrollCorner.CornerRadius = UDim.new(0, 10)
-ScrollCorner.Parent = Scroll
+-- Minimize toggle
+local isMinimized = false
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Size = UDim2.new(1, 0, 1, -46)
+ContentContainer.Position = UDim2.new(0, 0, 0, 46)
+ContentContainer.BackgroundTransparency = 1
+ContentContainer.Parent = MainFrame
 
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0, 7)
-Layout.Parent = Scroll
+MinimizeBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    local targetSize = isMinimized and UDim2.new(0, 450, 0, 54) or UDim2.new(0, 450, 0, 550)
+    TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+    ContentContainer.Visible = not isMinimized
+    MinimizeBtn.Text = isMinimized and "+" or "−"
+end)
 
-local Padding = Instance.new("UIPadding")
-Padding.PaddingLeft = UDim.new(0, 8)
-Padding.PaddingRight = UDim.new(0, 8)
-Padding.PaddingTop = UDim.new(0, 8)
-Padding.Parent = Scroll
+-- Script List Panel (semi-transparent)
+local ScriptListFrame = Instance.new("Frame")
+ScriptListFrame.Size = UDim2.new(1, -20, 0, 370)
+ScriptListFrame.Position = UDim2.new(0, 10, 0, 10)
+ScriptListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+ScriptListFrame.BackgroundTransparency = 0.35
+ScriptListFrame.BorderSizePixel = 0
+ScriptListFrame.Parent = ContentContainer
 
--- Script Buttons
+local ListCorner = Instance.new("UICorner")
+ListCorner.CornerRadius = UDim.new(0, 10)
+ListCorner.Parent = ScriptListFrame
+
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(1, -12, 1, -12)
+ScrollingFrame.Position = UDim2.new(0, 6, 0, 6)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.ScrollBarThickness = 5
+ScrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 130)
+ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+ScrollingFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ScrollingFrame.Parent = ScriptListFrame
+
+local ScrollLayout = Instance.new("UIListLayout")
+ScrollLayout.Padding = UDim.new(0, 8)
+ScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ScrollLayout.Parent = ScrollingFrame
+
+local ScrollPadding = Instance.new("UIPadding")
+ScrollPadding.PaddingLeft = UDim.new(0, 6)
+ScrollPadding.PaddingRight = UDim.new(0, 6)
+ScrollPadding.PaddingTop = UDim.new(0, 6)
+ScrollPadding.PaddingBottom = UDim.new(0, 6)
+ScrollPadding.Parent = ScrollingFrame
+
+-- Create script buttons (glassy look)
+local SelectedScript = nil
+local LoadedScripts = {}
+
 for _, script in ipairs(Scripts) do
-    local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(1, 0, 0, 44)
-    Btn.BackgroundColor3 = Color3.fromRGB(34, 34, 39)
-    Btn.Text = "  " .. script.Name
-    Btn.TextColor3 = Color3.fromRGB(205, 205, 215)
-    Btn.TextSize = 15
-    Btn.Font = Enum.Font.Gotham
-    Btn.TextXAlignment = Enum.TextXAlignment.Left
-    Btn.AutoButtonColor = false
-    Btn.Parent = Scroll
+    local Button = Instance.new("TextButton")
+    Button.Name = script.Name
+    Button.Size = UDim2.new(1, 0, 0, 46)
+    Button.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    Button.BackgroundTransparency = 0.3
+    Button.TextColor3 = Color3.fromRGB(220, 220, 240)
+    Button.Font = Enum.Font.GothamMedium
+    Button.TextSize = 14
+    Button.Text = script.Name
+    Button.AutoButtonColor = false
+    Button.Parent = ScrollingFrame
 
     local BtnCorner = Instance.new("UICorner")
     BtnCorner.CornerRadius = UDim.new(0, 8)
-    BtnCorner.Parent = Btn
+    BtnCorner.Parent = Button
 
-    Btn.MouseButton1Click:Connect(function()
+    Button.MouseButton1Click:Connect(function()
         if SelectedScript then
-            SelectedScript.BackgroundColor3 = Color3.fromRGB(34, 34, 39)
+            SelectedScript.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+            SelectedScript.BackgroundTransparency = 0.3
         end
-        SelectedScript = Btn
-        Btn.BackgroundColor3 = Color3.fromRGB(60, 100, 180)
+        SelectedScript = Button
+        Button.BackgroundColor3 = Color3.fromRGB(80, 100, 150)
+        Button.BackgroundTransparency = 0.2
+    end)
+
+    Button.MouseEnter:Connect(function()
+        if SelectedScript ~= Button then
+            Button.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+            Button.BackgroundTransparency = 0.2
+        end
+    end)
+
+    Button.MouseLeave:Connect(function()
+        if SelectedScript ~= Button then
+            Button.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+            Button.BackgroundTransparency = 0.3
+        end
     end)
 end
 
-Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    Scroll.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 20)
+-- Update canvas size
+local function updateCanvas()
+    ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, ScrollLayout.AbsoluteContentSize.Y + 12)
+end
+ScrollLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateCanvas)
+updateCanvas()
+
+-- Button container (Execute & Unload)
+local ButtonContainer = Instance.new("Frame")
+ButtonContainer.Size = UDim2.new(1, -20, 0, 90)
+ButtonContainer.Position = UDim2.new(0, 10, 1, -100)
+ButtonContainer.BackgroundTransparency = 1
+ButtonContainer.Parent = ContentContainer
+
+-- Execute Button
+local ExecuteButton = Instance.new("TextButton")
+ExecuteButton.Size = UDim2.new(0, 190, 0, 44)
+ExecuteButton.Position = UDim2.new(0, 0, 0, 0)
+ExecuteButton.BackgroundColor3 = Color3.fromRGB(65, 85, 125)
+ExecuteButton.TextColor3 = Color3.new(1, 1, 1)
+ExecuteButton.Font = Enum.Font.GothamBold
+ExecuteButton.TextSize = 16
+ExecuteButton.Text = "▶ EXECUTE"
+ExecuteButton.AutoButtonColor = false
+ExecuteButton.Parent = ButtonContainer
+
+local ExecCorner = Instance.new("UICorner")
+ExecCorner.CornerRadius = UDim.new(0, 10)
+ExecCorner.Parent = ExecuteButton
+
+ExecuteButton.MouseEnter:Connect(function()
+    ExecuteButton.BackgroundColor3 = Color3.fromRGB(85, 105, 145)
+end)
+ExecuteButton.MouseLeave:Connect(function()
+    ExecuteButton.BackgroundColor3 = Color3.fromRGB(65, 85, 125)
 end)
 
--- Buttons Area
-local BtnArea = Instance.new("Frame")
-BtnArea.Size = UDim2.new(1, -20, 0, 80)
-BtnArea.Position = UDim2.new(0, 10, 1, -90)
-BtnArea.BackgroundTransparency = 1
-BtnArea.Parent = MainFrame
+-- Unload Button
+local UnloadButton = Instance.new("TextButton")
+UnloadButton.Size = UDim2.new(0, 190, 0, 44)
+UnloadButton.Position = UDim2.new(1, -190, 0, 0)
+UnloadButton.BackgroundColor3 = Color3.fromRGB(130, 70, 70)
+UnloadButton.TextColor3 = Color3.new(1, 1, 1)
+UnloadButton.Font = Enum.Font.GothamBold
+UnloadButton.TextSize = 16
+UnloadButton.Text = "✖ UNLOAD ALL"
+UnloadButton.AutoButtonColor = false
+UnloadButton.Parent = ButtonContainer
 
-local ExecuteBtn = Instance.new("TextButton")
-ExecuteBtn.Size = UDim2.new(0.5, -5, 0, 42)
-ExecuteBtn.BackgroundColor3 = Color3.fromRGB(45, 160, 80)
-ExecuteBtn.Text = "Execute"
-ExecuteBtn.TextColor3 = Color3.new(1,1,1)
-ExecuteBtn.Font = Enum.Font.GothamBold
-ExecuteBtn.TextSize = 15
-ExecuteBtn.Parent = BtnArea
+local UnloadCorner = Instance.new("UICorner")
+UnloadCorner.CornerRadius = UDim.new(0, 10)
+UnloadCorner.Parent = UnloadButton
 
-local UnloadBtn = Instance.new("TextButton")
-UnloadBtn.Size = UDim2.new(0.5, -5, 0, 42)
-UnloadBtn.Position = UDim2.new(0.5, 5, 0, 0)
-UnloadBtn.BackgroundColor3 = Color3.fromRGB(170, 55, 55)
-UnloadBtn.Text = "Unload All"
-UnloadBtn.TextColor3 = Color3.new(1,1,1)
-UnloadBtn.Font = Enum.Font.GothamBold
-UnloadBtn.TextSize = 15
-UnloadBtn.Parent = BtnArea
+UnloadButton.MouseEnter:Connect(function()
+    UnloadButton.BackgroundColor3 = Color3.fromRGB(150, 85, 85)
+end)
+UnloadButton.MouseLeave:Connect(function()
+    UnloadButton.BackgroundColor3 = Color3.fromRGB(130, 70, 70)
+end)
 
--- Execute with Timeout
-ExecuteBtn.MouseButton1Click:Connect(function()
+-- Status Label
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -20, 0, 24)
+StatusLabel.Position = UDim2.new(0, 10, 1, -34)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "📦 Loaded: 0 scripts"
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextSize = 12
+StatusLabel.TextColor3 = Color3.fromRGB(170, 170, 200)
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Parent = ContentContainer
+
+local function updateStatus()
+    StatusLabel.Text = "📦 Loaded: " .. #LoadedScripts .. " scripts"
+end
+
+-- =========================== EXECUTION LOGIC (YOUR WORKING METHOD) ===========================
+ExecuteButton.MouseButton1Click:Connect(function()
     if not SelectedScript then
-        game.StarterGui:SetCore("SendNotification", {Title="Error", Text="Select a script first", Duration=3})
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "Universal Script Centre",
+            Text = "Select a script first",
+            Duration = 2
+        })
         return
     end
 
-    local scriptName = SelectedScript.Text:match("%S.*")
-    local scriptData = nil
+    local scriptName = SelectedScript.Name
+    local script = nil
     for _, s in ipairs(Scripts) do
-        if s.Name == scriptName then scriptData = s break end
+        if s.Name == scriptName then
+            script = s
+            break
+        end
     end
 
-    if not scriptData then return end
-
-    ExecuteBtn.Text = "Loading..."
-    ExecuteBtn.BackgroundColor3 = Color3.fromRGB(255, 170, 50)
-
-    task.spawn(function()
-        local timeout = 15
-        local startTime = tick()
+    if script then
+        ExecuteButton.Text = "LOADING..."
+        ExecuteButton.BackgroundColor3 = Color3.fromRGB(200, 160, 50)
 
         local success, err = pcall(function()
-            local code = game:HttpGet(scriptData.URL, true)
-            loadstring(code)()
+            loadstring(game:HttpGet(script.URL))()
         end)
 
         if success then
-            ExecuteBtn.Text = "✓ Success"
-            ExecuteBtn.BackgroundColor3 = Color3.fromRGB(45, 160, 80)
+            table.insert(LoadedScripts, scriptName)
+            updateStatus()
+            ExecuteButton.Text = "✓ EXECUTED"
+            ExecuteButton.BackgroundColor3 = Color3.fromRGB(70, 130, 90)
+            game.StarterGui:SetCore("SendNotification", {
+                Title = "Universal Script Centre",
+                Text = scriptName .. " loaded successfully!",
+                Duration = 3
+            })
+            task.wait(1.5)
+            ExecuteButton.Text = "▶ EXECUTE"
+            ExecuteButton.BackgroundColor3 = Color3.fromRGB(65, 85, 125)
         else
-            ExecuteBtn.Text = "✗ Failed"
-            ExecuteBtn.BackgroundColor3 = Color3.fromRGB(190, 50, 50)
-            warn("Failed to load " .. scriptName .. ": " .. tostring(err))
+            ExecuteButton.Text = "✗ ERROR"
+            ExecuteButton.BackgroundColor3 = Color3.fromRGB(180, 70, 70)
+            game.StarterGui:SetCore("SendNotification", {
+                Title = "Universal Script Centre",
+                Text = "Failed to load " .. scriptName,
+                Duration = 3
+            })
+            warn("[USC] Error: " .. tostring(err))
+            task.wait(2)
+            ExecuteButton.Text = "▶ EXECUTE"
+            ExecuteButton.BackgroundColor3 = Color3.fromRGB(65, 85, 125)
         end
-
-        task.wait(1.4)
-        ExecuteBtn.Text = "Execute"
-        ExecuteBtn.BackgroundColor3 = Color3.fromRGB(45, 160, 80)
-    end)
+    end
 end)
 
--- Unload
-UnloadBtn.MouseButton1Click:Connect(function()
-    UnloadBtn.Text = "Unloading..."
-    UnloadBtn.BackgroundColor3 = Color3.fromRGB(255, 160, 40)
+-- Unload all scripts (cleans Rayfield, ESP, Zoom, etc.)
+UnloadButton.MouseButton1Click:Connect(function()
+    UnloadButton.Text = "UNLOADING..."
+    UnloadButton.BackgroundColor3 = Color3.fromRGB(200, 160, 50)
 
-    task.spawn(function()
-        for _, v in ipairs(game.CoreGui:GetChildren()) do
-            if v.Name:find("Rayfield") or v.Name:find("NMT") or v.Name:find("ESP") then
-                pcall(function() v:Destroy() end)
+    local patterns = {"Rayfield", "ESP", "Zoom", "NMT", "VehicleModifier", "CameraUnlocker", "ExtendedFOV", "UniversalScriptCentre"}
+    for _, child in ipairs(game.CoreGui:GetChildren()) do
+        for _, pattern in ipairs(patterns) do
+            if child.Name:find(pattern) and child.Name ~= "UniversalScriptCentre" then
+                pcall(function() child:Destroy() end)
             end
         end
-        UnloadBtn.Text = "✓ Done"
-        UnloadBtn.BackgroundColor3 = Color3.fromRGB(45, 160, 80)
-        task.wait(1.3)
-        UnloadBtn.Text = "Unload All"
-        UnloadBtn.BackgroundColor3 = Color3.fromRGB(170, 55, 55)
-    end)
+    end
+    for _, child in ipairs(LocalPlayer.PlayerGui:GetChildren()) do
+        for _, pattern in ipairs(patterns) do
+            if child.Name:find(pattern) and child.Name ~= "UniversalScriptCentre" then
+                pcall(function() child:Destroy() end)
+            end
+        end
+    end
+
+    LoadedScripts = {}
+    SelectedScript = nil
+    updateStatus()
+
+    UnloadButton.Text = "✓ UNLOADED"
+    UnloadButton.BackgroundColor3 = Color3.fromRGB(70, 130, 90)
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "Universal Script Centre",
+        Text = "All scripts unloaded",
+        Duration = 2
+    })
+    task.wait(1.5)
+    UnloadButton.Text = "✖ UNLOAD ALL"
+    UnloadButton.BackgroundColor3 = Color3.fromRGB(130, 70, 70)
 end)
 
-CloseBtn.MouseButton1Click:Connect(function() GUI:Destroy() end)
+-- =========================== AUTO-EXECUTE ===========================
+task.spawn(function()
+    task.wait(1.5)
+    print("[USC] Auto-loading Infinite Yield...")
+    local success, err = pcall(function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+    end)
+    if success then
+        table.insert(LoadedScripts, "Infinite Yield (Auto)")
+        updateStatus()
+        print("[USC] ✓ Infinite Yield loaded")
+    else
+        warn("[USC] Auto-load failed: " .. tostring(err))
+    end
+end)
 
-UserInputService.InputBegan:Connect(function(i, gp)
-    if gp then return end
-    if i.KeyCode == Enum.KeyCode.Delete then
+-- =========================== TOGGLE WITH 'U' KEY ===========================
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.U then
         GUI.Enabled = not GUI.Enabled
     end
 end)
 
-print("✅ Universal Script Centre Loader v3 Loaded | Press DELETE to toggle")
+-- =========================== STARTUP NOTIFICATION ===========================
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Universal Script Centre",
+    Text = "Press U to toggle. Select a script and click EXECUTE.",
+    Duration = 5
+})
+
+print("✅ Universal Script Centre (Premium Theme) loaded. Press U to toggle.")
